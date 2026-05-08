@@ -1,11 +1,58 @@
-import yfinance as yf
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-import torch
-from torch.utils.data import DataLoader
+import pygame
+from skimage.measure import block_reduce
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+
+def animate(map_,w,h,start, target, traj):
+    '''
+    Params: map_ : 2D array of a greyscale map
+            w : width
+            h : height
+            start : (x,y)  initial agent position
+            target : (x,y) position of target
+            traj : [(x_0,y_0),...,(x_n,y_n)] 
+                      list of traj taken
+    loops over all traj (x_i,y_i) and calls draw()
+    keeps window open til user exits out
+    '''
+    cell_size = 20
+    window = pygame.display.set_mode((w*cell_size,h*cell_size))
+    draw(map_, w, h, window, cell_size, target,start)           #draw starting state
+    for (x,y) in traj:
+        draw(map_, w, h, window, cell_size, target,(x,y))
+        pygame.time.delay(200)                                  #delay by 0.2s
+
+    '''
+    running = True
+    while running:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:                           #display window til exit
+                running = False
+    '''
+    pygame.quit()
+
+def draw(map_,w,h, window, cell_size, target, agent_pos):
+    '''
+    '''
+    #put all cells on the window
+    for x in range(w):
+        for y in range(h):
+            if map_[x][y] == 0:
+                pygame.draw.rect(window, 'black', 
+                             (x*cell_size , y*cell_size , cell_size, cell_size))
+            elif map_[x][y] == 1:
+                pygame.draw.rect(window, 'white', 
+                             (x*cell_size , y*cell_size , cell_size, cell_size))
+    #draw target
+    pygame.draw.rect(window, 'green', 
+                    (target[0]*cell_size , target[1]*cell_size , cell_size, cell_size))
+    #draw agent
+    pygame.draw.rect(window, 'orange', 
+                    (agent_pos[0]*cell_size , agent_pos[1]*cell_size , cell_size, cell_size))
+    pygame.display.flip()
+
 
 
 def plot_grid_training_loss(results, save_path, cfg):
@@ -32,90 +79,48 @@ def plot_grid_training_loss(results, save_path, cfg):
     
 
 
-def plot_grid_true_v_pred(results, save_path, cfg):
-    '''
-    puts four plots, one for each stock,
-    in a 2x2 grid on true vs pred values
-    '''
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    hps = f"hidden={cfg['hidden_size']}  recurrent layers={cfg['num_layers']}  lr={cfg['lr']}  dropout={cfg['dropout']}"
-    fig.suptitle(hps, fontsize=10, y=1.01)
-
-    for ax, (stock, dates, true_vals, pred_vals) in zip(axes.flatten(), results):
-        ax.plot(dates, true_vals, label='True')
-        ax.plot(dates, pred_vals, label='Predicted')
-        ax.set_title(stock)
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Price ($)')
-        ax.legend()
-        ax.tick_params(axis='x', rotation=45)
-    plt.tight_layout()
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.savefig(save_path)
-    #plt.show()
-    plt.close()
-
-
-def get_stock_data():
+def bmp_to_mat(abs_siz, fname):
     '''
     gets stock data from yfinance
     '''
-    stocks = ["AAPL", "NVDA", "AMZN", "WMT"]
-    ds = yf.download(stocks, start="2023-04-13", end="2026-04-13")
-    ds = ds.dropna()
-    return ds, stocks
+    surface = pygame.image.load(f'bmps/{fname}.bmp')
+    arr = pygame.surfarray.array3d(surface)
+    arr = arr[:, :, 0]
+    greyscale_arr = (arr > 0).astype(int)
+    
+    pooled_map = block_reduce(greyscale_arr, abs_siz, np.min)
+    pooled_map = np.vstack([np.zeros((1, pooled_map.shape[1])), pooled_map])
+    pooled_map = np.vstack([pooled_map, np.zeros((1, pooled_map.shape[1]))])
+    pooled_map = np.hstack([np.zeros((pooled_map.shape[0], 1)), pooled_map])
+    pooled_map = np.hstack([pooled_map, np.zeros((pooled_map.shape[0], 1))])
+
+    return surface, pooled_map
 
 
-def preprocess(ds, stock, window_size=60):
+
+def get_results_dict(mode, FNAMEs=[]):
     '''
-    normalizes the data, splits into 80% training, 20%
-    test, apply sliding window of size 60 to both sets
+    returns dictionary templates to help
+    standarize the experiment results 
+    across all experiments
     '''
-    #training only on closing prices
-    close = ds['Close'][[stock]].values
-
-    train_size = int(len(close) * 0.80)
-
-    #normalize the data
-    scaler = MinMaxScaler()
-    train_scaled = scaler.fit_transform(close[:train_size])
-    test_scaled  = scaler.transform(close[train_size:])
-
-    #split train set into windows
-    X_train, y_train = [], []
-    for i in range(window_size, len(train_scaled)):
-        X_train.append(train_scaled[i-window_size:i, :])
-        y_train.append(train_scaled[i, :])
-
-    #split train set into windows
-    test_context = np.concatenate([train_scaled[-window_size:], test_scaled])
-    X_test, y_test = [], []
-    for i in range(window_size, len(test_context)):
-        
-        X_test.append(test_context[i-window_size:i, :])
-        y_test.append(test_context[i, :])
-
-    X_train, y_train = np.array(X_train), np.array(y_train)
-    X_test,  y_test  = np.array(X_test),  np.array(y_test)
-
-    return (
-        torch.tensor(X_train, dtype=torch.float32),
-        torch.tensor(X_test,  dtype=torch.float32),
-        torch.tensor(y_train, dtype=torch.float32),
-        torch.tensor(y_test,  dtype=torch.float32),
-        scaler
-    )
-
-
-def get_results_dict(mode):
     dict = {}
-    if mode == 'train':
+    if mode == 'com':             #Complexity of Map
+        per_map = {
+            'timestamp' : [],
+            'num_episodes' : [],
+            'num_steps' : [],
+            'method': [],
+            'time_cost': [],
+            'shortest_path': [],
+            'reward_sequence': [],
+            'final_q_table': [],
+        }
         dict = {
-            'stock_name': [],
-            'timestamp': [],
-            'epoch': [],
-            'avg_mse_loss': [],
-            'fit_time': [],
+                FNAMEs[0] : {k: [] for k in per_map},
+                FNAMEs[1] : {k: [] for k in per_map},
+                FNAMEs[2] : {k: [] for k in per_map},
+                FNAMEs[3] : {k: [] for k in per_map}
         }
     elif mode == 'eval':
         dict = {

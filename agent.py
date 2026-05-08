@@ -1,36 +1,15 @@
 import numpy as np
+from collections import defaultdict
 
 class agent():
-    def __init__(self, starting_pos):
+    def __init__(self, env, starting_pos):
+        self.env = env
         self.state = starting_pos
-        self.state = None
-        self.q_table = {}
+        # Q[state][action]: action is int 0=UP 1=DOWN 2=LEFT 3=RIGHT
+        self.q_table = defaultdict(lambda: {a: 0.0 for a in range(self.env.total_actions)})
 
-    def act(self, pos):
+    def act(self, state):
         '''
-        actions = [UP,DOWN,LEFT,RIGHT]
+        Greedy: return action with highest q_value for current state.
         '''
-        x = pos[0]
-        y = pos[1]
-        s_t = (x, y)
-        a_t = ()
-        r_t1 = 0
-        if s_t not in self.q_table:
-            self.q_table[s_t][a_t] = r_t1
-
-        neighbors = [self.q_table[s_t][(x-1, 0)], #up
-                     self.q_table[s_t][(x+1, 0)], #down
-                     self.q_table[s_t][(0, y-1)], #left
-                     self.q_table[s_t][(0, y+1)]] #right        
-
-        return np.argmax(neighbors)
-
-    def update_q(self, next_state, reward, lr, disc):
-        '''
-        applies the Q(s,a) update function
-        '''
-        #update q_table
-        self.state = next_state
-        q_sa = self.q_table[next_state][reward] 
-        q_sa_1 = self.q_table[next_state][reward] + reward #TODO i know this wrong btw
-        self.q_table[next_state] = q_sa + lr(reward + disc*q_sa_1 - q_sa)
+        return max(self.q_table[state], key=self.q_table[state].get)
