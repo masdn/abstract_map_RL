@@ -1,0 +1,4 @@
+timestamp,experiment,num_episodes,num_steps,method,reward_strat,lr,explore_rate,disc_rate,time_cost,shortest_path,test_accuracy
+1778305633,exploration_rate,500,200,SARSA,s1,0.2,0,0.5,0.14997005462646484,"(495, 39)",0.19402985074626866
+1778305633,exploration_rate,500,200,SARSA,s1,0.2,0.5,0.5,0.23781394958496094,"(95, 142)",0.042643923240938165
+1778305633,exploration_rate,500,200,SARSA,s1,0.2,1,0.5,0.3041079044342041,"(499, 200)",0.014925373134328358

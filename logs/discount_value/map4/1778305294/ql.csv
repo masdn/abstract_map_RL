@@ -1,0 +1,4 @@
+timestamp,experiment,num_episodes,num_steps,method,reward_strat,lr,explore_rate,disc_rate,time_cost,shortest_path,test_accuracy
+1778305294,discount_value,500,200,QLearning,s1,0.2,0.5,0.1,0.5793747901916504,"(312, 85)",0.04477611940298507
+1778305294,discount_value,500,200,QLearning,s1,0.2,0.5,0.5,0.5425527095794678,"(419, 57)",0.2878464818763326
+1778305294,discount_value,500,200,QLearning,s1,0.2,0.5,1,0.4861142635345459,"(495, 52)",0.4925373134328358
